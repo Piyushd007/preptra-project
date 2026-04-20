@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Skill Gap Analyzer{% endblock %}
+{% block page_title %}<span>Skill Gap Analyzer</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">Skill Gap Analyzer</h1><p class="page-sub">AI-powered analysis of your skill readiness for target roles</p></div>
+</div>
+
+<div class="skill-gap-layout">
+  <!-- Input Panel -->
+  <div class="dash-card skill-input-card">
+    <div class="card-head"><h3><i class="bi bi-bullseye"></i> Analyze Your Skills</h3></div>
+    <div class="form-group">
+      <label>Target Role</label>
+      <select id="targetRole" class="form-input form-select-input">
+        {% for role in skill_map.keys() %}
+        <option>{{ role }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Your Current Skills <span class="form-hint">(from your profile)</span></label>
+      <div class="skills-input-wrap" id="skillsWrap">
+        {% for skill in current_user.get_skills() %}
+        <div class="skill-tag editable">{{ skill }}<button onclick="removeSkill(this)" class="skill-remove">×</button></div>
+        {% endfor %}
+        <input type="text" id="skillInput" class="skill-add-input" placeholder="+ Add skill, press Enter" onkeydown="addSkill(event)">
+      </div>
+    </div>
+    <button class="btn-primary-full" onclick="analyzeSkills()"><i class="bi bi-cpu-fill"></i> Analyze Skill Gap</button>
+  </div>
+
+  <!-- Results Panel -->
+  <div id="resultsPanel" style="display:none">
+    <!-- Coverage Score -->
+    <div class="dash-card">
+      <div class="card-head"><h3>Skill Coverage</h3></div>
+      <div class="coverage-display">
+        <div class="coverage-circle">
+          <canvas id="coverageChart" width="160" height="160"></canvas>
+          <div class="coverage-label" id="coverageLabel">0%</div>
+        </div>
+        <div class="coverage-info">
+          <div class="coverage-have" id="coverageHave">0 skills matched</div>
+          <div class="coverage-miss" id="coverageMiss">0 skills missing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Have vs Missing -->
+    <div class="skill-cols">
+      <div class="dash-card skill-have-card">
+        <div class="card-head"><h3><i class="bi bi-check-circle-fill" style="color:#10b981"></i> You Have</h3></div>
+        <div id="haveList" class="skill-list-result"></div>
+      </div>
+      <div class="dash-card skill-miss-card">
+        <div class="card-head"><h3><i class="bi bi-x-circle-fill" style="color:#ef4444"></i> You're Missing</h3></div>
+        <div id="missList" class="skill-list-result"></div>
+      </div>
+    </div>
+
+    <!-- AI Tips -->
+    <div class="dash-card ai-tips-card">
+      <div class="card-head"><h3><i class="bi bi-stars" style="color:#f59e0b"></i> AI Analysis & Recommendations</h3></div>
+      <div id="aiTipsContent" class="ai-tips-text"></div>
+    </div>
+
+    <!-- Learning Roadmap -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-map-fill"></i> Learning Roadmap</h3></div>
+      <div id="roadmapList" class="roadmap-list"></div>
+    </div>
+
+    <!-- Good to Have -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-star-fill" style="color:#f59e0b"></i> Good to Have</h3></div>
+      <div id="goodToHaveList" class="skill-tags-row"></div>
+    </div>
+  </div>
+</div>
+
+<div id="skillLoadingOverlay" class="loading-overlay" style="display:none">
+  <div class="loading-spinner"><i class="bi bi-cpu-fill spin"></i><p>Analyzing your skill profile...</p></div>
+</div>
+
+<script>
+function removeSkill(btn){ btn.parentElement.remove(); }
+function addSkill(e){
+  if(e.key==='Enter'){
+    const inp=document.getElementById('skillInput');
+    const val=inp.value.trim();
+    if(!val) return;
+    const wrap=document.getElementById('skillsWrap');
+    const div=document.createElement('div');
+    div.className='skill-tag editable';
+    div.innerHTML=`${val}<button onclick="removeSkill(this)" class="skill-remove">×</button>`;
+    wrap.insertBefore(div,inp);
+    inp.value='';
+  }
+}
+function getSkills(){
+  return Array.from(document.querySelectorAll('.skill-tag.editable')).map(t=>t.textContent.trim().replace('×','').trim());
+}
+
+async function analyzeSkills(){
+  const role=document.getElementById('targetRole').value;
+  const skills=getSkills();
+  document.getElementById('skillLoadingOverlay').style.display='flex';
+
+  // Save skills to profile
+  await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skills})});
+
+  const r=await fetch('/api/skill-gap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,skills_override:skills})});
+  const data=await r.json();
+  document.getElementById('skillLoadingOverlay').style.display='none';
+  document.getElementById('resultsPanel').style.display='block';
+  document.getElementById('resultsPanel').scrollIntoView({behavior:'smooth'});
+
+  // Coverage
+  document.getElementById('coverageLabel').textContent=data.coverage+'%';
+  document.getElementById('coverageHave').textContent=data.have.length+' skills matched';
+  document.getElementById('coverageMiss').textContent=data.missing.length+' skills missing';
+
+  // Donut chart
+  const ctx=document.getElementById('coverageChart').getContext('2d');
+  if(window._covChart) window._covChart.destroy();
+  window._covChart=new Chart(ctx,{type:'doughnut',data:{datasets:[{data:[data.coverage,100-data.coverage],backgroundColor:[data.coverage>=70?'#10b981':data.coverage>=40?'#f59e0b':'#ef4444','#1e293b'],borderWidth:0}]},options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+
+  // Have list
+  document.getElementById('haveList').innerHTML=data.have.map(s=>`<div class="result-skill have"><i class="bi bi-check-circle-fill"></i>${s}</div>`).join('')||'<p class="text-muted">No matching skills found. Add your skills above.</p>';
+
+  // Missing list
+  document.getElementById('missList').innerHTML=data.missing.map(s=>`<div class="result-skill miss"><i class="bi bi-x-circle-fill"></i>${s}</div>`).join('');
+
+  // AI tips
+  const tipsHtml=(data.ai_tips||'').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  document.getElementById('aiTipsContent').innerHTML=`<p>${tipsHtml}</p>`;
+
+  // Roadmap
+  document.getElementById('roadmapList').innerHTML=data.roadmap.map((r,i)=>`
+    <div class="roadmap-item">
+      <div class="roadmap-num">${i+1}</div>
+      <div class="roadmap-content">
+        <div class="roadmap-skill">${r.skill} <span class="priority-badge ${r.priority.toLowerCase()}">${r.priority}</span></div>
+        <div class="roadmap-time"><i class="bi bi-clock"></i> ~${r.estimated_weeks} weeks</div>
+        <div class="roadmap-res"><i class="bi bi-link-45deg"></i> ${r.resources}</div>
+      </div>
+    </div>`).join('');
+
+  // Good to have
+  document.getElementById('goodToHaveList').innerHTML=data.good_to_have.map(s=>`<span class="skill-tag good">${s}</span>`).join('');
+}
+</script>
+{% endblock %}

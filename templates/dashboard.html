@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}<span>Dashboard</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-h1">Good {{ 'Morning' if now().hour < 12 else 'Afternoon' if now().hour < 17 else 'Evening' }}, {{ current_user.name.split()[0] }} 👋</h1>
+    <p class="page-sub">Here's your placement progress at a glance</p>
+  </div>
+  <a href="{{ url_for('tracker.tracker') }}" class="btn-add"><i class="bi bi-plus-lg"></i> Add Application</a>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-card-icon blue"><i class="bi bi-briefcase-fill"></i></div>
+    <div class="stat-card-body">
+      <div class="stat-card-num">{{ total_apps }}</div>
+      <div class="stat-card-lbl">Total Applications</div>
+    </div>
+    <div class="stat-card-trend up"><i class="bi bi-arrow-up-right"></i></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon green"><i class="bi bi-trophy-fill"></i></div>
+    <div class="stat-card-body">
+      <div class="stat-card-num">{{ selected }}</div>
+      <div class="stat-card-lbl">Selected / Offers</div>
+    </div>
+    <div class="stat-card-trend up"><i class="bi bi-arrow-up-right"></i></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon amber"><i class="bi bi-clock-fill"></i></div>
+    <div class="stat-card-body">
+      <div class="stat-card-num">{{ in_progress }}</div>
+      <div class="stat-card-lbl">In Progress</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card-icon purple"><i class="bi bi-speedometer2"></i></div>
+    <div class="stat-card-body">
+      <div class="stat-card-num">{{ readiness }}<span class="stat-unit">%</span></div>
+      <div class="stat-card-lbl">Readiness Score</div>
+    </div>
+    <a href="{{ url_for('main.readiness') }}" class="stat-card-link"><i class="bi bi-arrow-right"></i></a>
+  </div>
+</div>
+
+<!-- Row: Readiness + Quick Actions -->
+<div class="dash-row">
+  <div class="dash-card readiness-card">
+    <div class="card-head">
+      <h3>Placement Readiness</h3>
+      <a href="{{ url_for('main.readiness') }}" class="card-link">View Details <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="readiness-gauge-wrap">
+      <canvas id="gaugeChart" width="220" height="130"></canvas>
+      <div class="gauge-label">
+        <div class="gauge-score">{{ readiness }}%</div>
+        <div class="gauge-desc">{{ 'Excellent' if readiness >= 80 else 'Good' if readiness >= 60 else 'Needs Work' if readiness >= 40 else 'Getting Started' }}</div>
+      </div>
+    </div>
+    <button class="btn-compute" onclick="computeReadiness()"><i class="bi bi-arrow-repeat"></i> Recompute Score</button>
+  </div>
+
+  <div class="dash-card quick-actions-card">
+    <div class="card-head"><h3>Quick Actions</h3></div>
+    <div class="quick-actions-grid">
+      <a href="{{ url_for('tracker.tracker') }}" class="quick-action-btn">
+        <div class="qa-icon blue"><i class="bi bi-plus-circle-fill"></i></div>
+        <span>Track Application</span>
+      </a>
+      <a href="{{ url_for('ai.chatbot') }}" class="quick-action-btn">
+        <div class="qa-icon purple"><i class="bi bi-robot"></i></div>
+        <span>Ask AI Advisor</span>
+      </a>
+      <a href="{{ url_for('ai.resume_analyzer') }}" class="quick-action-btn">
+        <div class="qa-icon green"><i class="bi bi-file-earmark-check-fill"></i></div>
+        <span>Analyze Resume</span>
+      </a>
+      <a href="{{ url_for('main.mock_interview') }}" class="quick-action-btn">
+        <div class="qa-icon amber"><i class="bi bi-camera-video-fill"></i></div>
+        <span>Mock Interview</span>
+      </a>
+      <a href="{{ url_for('ai.skill_gap') }}" class="quick-action-btn">
+        <div class="qa-icon red"><i class="bi bi-bullseye"></i></div>
+        <span>Skill Gap Check</span>
+      </a>
+      <a href="{{ url_for('ai.study_plan') }}" class="quick-action-btn">
+        <div class="qa-icon teal"><i class="bi bi-calendar3-fill"></i></div>
+        <span>Build Study Plan</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Applications -->
+<div class="dash-card">
+  <div class="card-head">
+    <h3>Recent Applications</h3>
+    <a href="{{ url_for('tracker.tracker') }}" class="card-link">View All <i class="bi bi-arrow-right"></i></a>
+  </div>
+  {% if recent_apps %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Company</th><th>Role</th><th>Package</th><th>Status</th><th>Applied</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for app in recent_apps %}
+        <tr>
+          <td><div class="company-cell"><div class="company-avatar">{{ app.company[0] }}</div>{{ app.company }}</div></td>
+          <td>{{ app.role }}</td>
+          <td>{{ '₹' + app.package_lpa|string + ' LPA' if app.package_lpa else '—' }}</td>
+          <td><span class="status-badge status-{{ app.status.lower().replace(' ', '-') }}">{{ app.status }}</span></td>
+          <td>{{ app.applied_date.strftime('%d %b %Y') if app.applied_date else '—' }}</td>
+          <td><a href="{{ url_for('tracker.tracker') }}" class="tbl-action"><i class="bi bi-pencil-fill"></i></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon"><i class="bi bi-briefcase"></i></div>
+    <p>No applications yet. Start tracking your placement journey!</p>
+    <a href="{{ url_for('tracker.tracker') }}" class="btn-add">Add First Application</a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Mock Interview Summary -->
+<div class="stats-grid-2">
+  <div class="dash-card">
+    <div class="card-head"><h3>Mock Interview Stats</h3><a href="{{ url_for('main.mock_interview') }}" class="card-link">Practice <i class="bi bi-arrow-right"></i></a></div>
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="mini-stat-num">{{ mock_count }}</div><div class="mini-stat-lbl">Sessions Done</div></div>
+      <div class="mini-stat"><div class="mini-stat-num">{{ avg_mock }}/5</div><div class="mini-stat-lbl">Avg AI Score</div></div>
+    </div>
+    <a href="{{ url_for('main.mock_interview') }}" class="btn-secondary-full">Start Mock Interview Session</a>
+  </div>
+  <div class="dash-card">
+    <div class="card-head"><h3>AI Tools</h3></div>
+    <div class="ai-tools-list">
+      <a href="{{ url_for('ai.chatbot') }}" class="ai-tool-item"><i class="bi bi-robot"></i><div><div class="ai-tool-name">Career AI Chatbot</div><div class="ai-tool-desc">Get instant career guidance</div></div><i class="bi bi-arrow-right-circle"></i></a>
+      <a href="{{ url_for('ai.skill_gap') }}" class="ai-tool-item"><i class="bi bi-bullseye"></i><div><div class="ai-tool-name">Skill Gap Analyzer</div><div class="ai-tool-desc">Identify and fill skill gaps</div></div><i class="bi bi-arrow-right-circle"></i></a>
+      <a href="{{ url_for('ai.resume_analyzer') }}" class="ai-tool-item"><i class="bi bi-file-earmark-person-fill"></i><div><div class="ai-tool-name">Resume Analyzer</div><div class="ai-tool-desc">Score and optimize your resume</div></div><i class="bi bi-arrow-right-circle"></i></a>
+    </div>
+  </div>
+</div>
+
+<script>
+// Gauge chart
+const ctx = document.getElementById('gaugeChart').getContext('2d');
+const score = {{ readiness }};
+new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    datasets: [{
+      data: [score, 100 - score],
+      backgroundColor: [score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#ef4444', '#1e293b'],
+      borderWidth: 0, borderRadius: 4
+    }]
+  },
+  options: { rotation: -90, circumference: 180, cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+});
+
+function computeReadiness() {
+  const btn = document.querySelector('.btn-compute');
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Computing...';
+  btn.disabled = true;
+  fetch('/api/compute-readiness', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(r => r.json()).then(data => {
+      btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Score Updated!';
+      setTimeout(() => location.reload(), 1200);
+    }).catch(() => { btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Recompute Score'; btn.disabled = false; });
+}
+</script>
+{% endblock %}

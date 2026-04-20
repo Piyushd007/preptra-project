@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block page_title %}<span>Analytics</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">Analytics Dashboard</h1><p class="page-sub">Insights from your placement journey</p></div>
+</div>
+{% if total_apps == 0 %}
+<div class="empty-state"><div class="empty-icon"><i class="bi bi-bar-chart"></i></div><h3>No data yet</h3><p>Start adding applications to see your analytics here.</p><a href="{{ url_for('tracker.tracker') }}" class="btn-add">Add Applications</a></div>
+{% else %}
+<div class="analytics-grid">
+  <!-- Status Chart -->
+  <div class="dash-card">
+    <div class="card-head"><h3>Application Status</h3></div>
+    <canvas id="statusChart" height="220"></canvas>
+  </div>
+  <!-- Round Performance -->
+  <div class="dash-card">
+    <div class="card-head"><h3>Round-wise Performance</h3></div>
+    <canvas id="roundChart" height="220"></canvas>
+  </div>
+  <!-- Monthly Trend -->
+  <div class="dash-card span-2">
+    <div class="card-head"><h3>Monthly Application Trend</h3></div>
+    <canvas id="monthlyChart" height="150"></canvas>
+  </div>
+  <!-- Readiness History -->
+  <div class="dash-card span-2">
+    <div class="card-head"><h3>Readiness Score History</h3></div>
+    {% if score_history %}
+    <canvas id="scoreChart" height="150"></canvas>
+    {% else %}
+    <div class="empty-state small"><p>Compute your Readiness Score to see history here.</p><a href="{{ url_for('main.readiness') }}" class="btn-add">Compute Score</a></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Company Pipeline -->
+<div class="dash-card">
+  <div class="card-head"><h3>Company Pipeline</h3></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Company</th><th>Role</th><th>Package</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for c in companies %}
+        <tr>
+          <td><div class="company-cell"><div class="company-avatar">{{ c.company[0] }}</div>{{ c.company }}</div></td>
+          <td>{{ c.role }}</td>
+          <td>{{ '₹' + c.package|string + ' LPA' if c.package else '—' }}</td>
+          <td><span class="status-badge status-{{ c.status.lower().replace(' ', '-') }}">{{ c.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const cjs = Chart.defaults;
+cjs.color = '#94a3b8';
+cjs.font.family = "'Outfit', sans-serif";
+
+const palette = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+
+// Status
+new Chart(document.getElementById('statusChart'),{type:'doughnut',data:{labels:{{ status_counts.keys()|list|tojson }},datasets:[{data:{{ status_counts.values()|list|tojson }},backgroundColor:palette,borderWidth:0,hoverOffset:6}]},options:{plugins:{legend:{position:'right',labels:{padding:16,font:{size:13}}}},cutout:'65%'}});
+
+// Round fails
+const rtypes = {{ round_total.keys()|list|tojson }};
+const rfails = rtypes.map(r => {{ round_fails|tojson }}[r]||0);
+const rtotals = rtypes.map(r => {{ round_total|tojson }}[r]||0);
+const rrates = rtypes.map((r,i) => rtotals[i] ? Math.round(rfails[i]/rtotals[i]*100) : 0);
+new Chart(document.getElementById('roundChart'),{type:'bar',data:{labels:rtypes,datasets:[{label:'Fail Rate %',data:rrates,backgroundColor:'#ef444488',borderColor:'#ef4444',borderWidth:2,borderRadius:6},{label:'Total Rounds',data:rtotals,backgroundColor:'#3b82f688',borderColor:'#3b82f6',borderWidth:2,borderRadius:6}]},options:{plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,grid:{color:'#1e293b'}}},x:{grid:{color:'#1e293b'}}}});
+
+// Monthly
+const months = {{ monthly.keys()|list|tojson }};
+const mcounts = {{ monthly.values()|list|tojson }};
+new Chart(document.getElementById('monthlyChart'),{type:'line',data:{labels:months,datasets:[{label:'Applications',data:mcounts,borderColor:'#3b82f6',backgroundColor:'#3b82f620',fill:true,tension:0.4,pointBackgroundColor:'#3b82f6',pointRadius:5}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#1e293b'}},x:{grid:{color:'#1e293b'}}}}});
+
+// Score history
+{% if score_history %}
+const sdates = {{ score_history|map(attribute='date')|list|tojson }};
+const svals = {{ score_history|map(attribute='score')|list|tojson }};
+new Chart(document.getElementById('scoreChart'),{type:'line',data:{labels:sdates,datasets:[{label:'Readiness Score',data:svals,borderColor:'#10b981',backgroundColor:'#10b98120',fill:true,tension:0.4,pointBackgroundColor:'#10b981',pointRadius:5}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,max:100,grid:{color:'#1e293b'}},x:{grid:{color:'#1e293b'}}}}});
+{% endif %}
+</script>
+{% endif %}
+{% endblock %}

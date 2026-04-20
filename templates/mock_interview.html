@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Mock Interview{% endblock %}
+{% block page_title %}<span>Mock Interview</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">Mock Interview Studio</h1><p class="page-sub">Practice with AI-powered interview questions and get instant feedback</p></div>
+</div>
+
+<div class="mock-layout">
+  <div class="mock-studio">
+    <!-- Setup -->
+    <div class="dash-card" id="mockSetup">
+      <div class="card-head"><h3><i class="bi bi-camera-video-fill"></i> Interview Setup</h3></div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label>Target Role</label>
+          <select id="mockRole" class="form-input form-select-input">
+            <option>Software Developer</option><option>Data Analyst</option><option>Product Manager</option><option>Marketing Executive</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Round Type</label>
+          <select id="mockCategory" class="form-input form-select-input">
+            <option>Technical</option><option>HR</option><option>Aptitude</option><option>Behavioral</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary-full" onclick="startInterview()"><i class="bi bi-play-fill"></i> Start Mock Interview</button>
+    </div>
+
+    <!-- Interview Session -->
+    <div id="interviewSession" style="display:none">
+      <div class="dash-card interview-card">
+        <div class="interview-header">
+          <div class="interview-meta">
+            <span id="sessionRole" class="session-badge blue"></span>
+            <span id="sessionCategory" class="session-badge purple"></span>
+            <span class="session-badge">Q <span id="qCount">1</span></span>
+          </div>
+          <div class="timer-display" id="timerDisplay">00:00</div>
+        </div>
+        <div class="question-box" id="questionBox">
+          <div class="q-label"><i class="bi bi-question-circle-fill"></i> Question</div>
+          <div id="questionText" class="question-text"></div>
+        </div>
+        <div class="form-group">
+          <label>Your Answer</label>
+          <textarea id="answerInput" class="form-input form-textarea lg" rows="8" placeholder="Type your answer here... Take your time, think through the problem step-by-step."></textarea>
+        </div>
+        <div class="self-rating-row">
+          <label>Self Rating:</label>
+          <div class="star-rating" id="starRating">
+            {% for i in range(1,6) %}
+            <button class="star-btn" data-val="{{ i }}" onclick="setRating({{ i }})"><i class="bi bi-star-fill"></i></button>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="interview-actions">
+          <button class="btn-cancel" onclick="skipQuestion()"><i class="bi bi-skip-forward-fill"></i> Skip</button>
+          <button class="btn-save" onclick="submitAnswer()"><i class="bi bi-send-fill"></i> Submit Answer</button>
+        </div>
+      </div>
+
+      <!-- AI Feedback -->
+      <div class="dash-card" id="feedbackCard" style="display:none">
+        <div class="card-head"><h3><i class="bi bi-stars" style="color:#f59e0b"></i> AI Feedback</h3></div>
+        <div class="feedback-score-row">
+          <div class="fb-score-circle">
+            <div class="fb-score-num" id="fbScore">0</div>
+            <div class="fb-score-lbl">/ 5</div>
+          </div>
+          <div id="feedbackText" class="feedback-text"></div>
+        </div>
+        <div class="feedback-actions">
+          <button class="btn-secondary" onclick="nextQuestion()"><i class="bi bi-arrow-right"></i> Next Question</button>
+          <button class="btn-cancel" onclick="endSession()"><i class="bi bi-stop-fill"></i> End Session</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session Summary -->
+    <div id="sessionSummary" style="display:none">
+      <div class="dash-card summary-card">
+        <div class="summary-icon"><i class="bi bi-trophy-fill"></i></div>
+        <h3>Session Complete!</h3>
+        <div class="summary-stats">
+          <div class="sum-stat"><span id="sumQ">0</span><label>Questions</label></div>
+          <div class="sum-stat"><span id="sumAvg">0</span><label>Avg Score</label></div>
+          <div class="sum-stat"><span id="sumTime">0m</span><label>Duration</label></div>
+        </div>
+        <button class="btn-primary-full" onclick="startInterview()">Practice Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Past Sessions -->
+  <div class="mock-history">
+    <div class="dash-card">
+      <div class="card-head"><h3>Past Sessions</h3></div>
+      {% if sessions %}
+      <div class="sessions-list">
+        {% for s in sessions %}
+        <div class="session-item">
+          <div class="session-cat session-{{ s.category.lower() if s.category else 'technical' }}">{{ s.category or 'Technical' }}</div>
+          <div class="session-content">
+            <div class="session-q">{{ s.question[:50] + '...' if s.question|length > 50 else s.question }}</div>
+            <div class="session-meta">
+              <span class="session-score">AI: {{ s.ai_rating }}/5</span>
+              <span class="session-role">{{ s.role }}</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state small"><p>No sessions yet. Start practicing!</p></div>
+      {% endif %}
+    </div>
+    <div class="dash-card">
+      <div class="card-head"><h3>Tips for Great Answers</h3></div>
+      <div class="tips-list">
+        <div class="tip-item"><i class="bi bi-1-circle-fill" style="color:#3b82f6"></i><span><strong>STAR Method</strong> for behavioral: Situation, Task, Action, Result</span></div>
+        <div class="tip-item"><i class="bi bi-2-circle-fill" style="color:#10b981"></i><span><strong>Think aloud</strong> in technical rounds — process matters as much as answer</span></div>
+        <div class="tip-item"><i class="bi bi-3-circle-fill" style="color:#f59e0b"></i><span><strong>Quantify</strong> your achievements — numbers impress interviewers</span></div>
+        <div class="tip-item"><i class="bi bi-4-circle-fill" style="color:#8b5cf6"></i><span><strong>Ask clarifying questions</strong> before diving into complex problems</span></div>
+        <div class="tip-item"><i class="bi bi-5-circle-fill" style="color:#ef4444"></i><span><strong>Practice daily</strong> — even 15 minutes makes a difference</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let timer=null, secs=0, qCount=0, totalScore=0, selfRating=3, sessionActive=false;
+
+function startInterview(){
+  const role=document.getElementById('mockRole').value;
+  const cat=document.getElementById('mockCategory').value;
+  document.getElementById('mockSetup').style.display='none';
+  document.getElementById('interviewSession').style.display='block';
+  document.getElementById('sessionSummary').style.display='none';
+  document.getElementById('sessionRole').textContent=role;
+  document.getElementById('sessionCategory').textContent=cat;
+  qCount=0; totalScore=0; secs=0; sessionActive=true;
+  startTimer(); getQuestion();
+}
+
+function startTimer(){
+  if(timer) clearInterval(timer);
+  secs=0;
+  timer=setInterval(()=>{ secs++; const m=Math.floor(secs/60).toString().padStart(2,'0'); const s=(secs%60).toString().padStart(2,'0'); document.getElementById('timerDisplay').textContent=`${m}:${s}`; },1000);
+}
+
+async function getQuestion(){
+  document.getElementById('feedbackCard').style.display='none';
+  document.getElementById('answerInput').value='';
+  setRating(3);
+  const r=await fetch('/api/mock-question',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:document.getElementById('mockRole').value,category:document.getElementById('mockCategory').value})});
+  const data=await r.json();
+  qCount++;
+  document.getElementById('qCount').textContent=qCount;
+  document.getElementById('questionText').textContent=data.question;
+}
+
+function setRating(val){
+  selfRating=val;
+  document.querySelectorAll('.star-btn').forEach((b,i)=>{ b.classList.toggle('active',i<val); });
+}
+
+async function submitAnswer(){
+  const answer=document.getElementById('answerInput').value.trim();
+  if(!answer){ alert('Please type your answer before submitting.'); return; }
+  const btn=document.querySelector('.btn-save');
+  btn.disabled=true; btn.innerHTML='<i class="bi bi-arrow-repeat spin"></i> Evaluating...';
+
+  const r=await fetch('/api/mock-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:document.getElementById('questionText').textContent,answer,role:document.getElementById('mockRole').value,category:document.getElementById('mockCategory').value,self_rating:selfRating})});
+  const data=await r.json();
+  btn.disabled=false; btn.innerHTML='<i class="bi bi-send-fill"></i> Submit Answer';
+
+  totalScore+=data.ai_rating||3;
+  document.getElementById('fbScore').textContent=(data.ai_rating||3).toFixed(1);
+  const fbColor=data.ai_rating>=4?'#10b981':data.ai_rating>=3?'#f59e0b':'#ef4444';
+  document.getElementById('fbScore').style.color=fbColor;
+  const feedbackFmt=(data.feedback||'').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  document.getElementById('feedbackText').innerHTML=`<p>${feedbackFmt}</p>`;
+  document.getElementById('feedbackCard').style.display='block';
+  document.getElementById('feedbackCard').scrollIntoView({behavior:'smooth'});
+}
+
+function nextQuestion(){ getQuestion(); document.getElementById('feedbackCard').style.display='none'; }
+function skipQuestion(){ getQuestion(); }
+
+function endSession(){
+  clearInterval(timer);
+  document.getElementById('interviewSession').style.display='none';
+  document.getElementById('sessionSummary').style.display='block';
+  document.getElementById('sumQ').textContent=qCount;
+  document.getElementById('sumAvg').textContent=qCount>0?(totalScore/qCount).toFixed(1)+'/5':'0/5';
+  document.getElementById('sumTime').textContent=Math.round(secs/60)+'m';
+}
+</script>
+{% endblock %}

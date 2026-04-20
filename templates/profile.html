@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block page_title %}<span>Profile</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">My Profile</h1><p class="page-sub">Manage your information and track your progress</p></div>
+  <button class="btn-add" onclick="saveProfile()"><i class="bi bi-check-lg"></i> Save Changes</button>
+</div>
+
+<div class="profile-layout">
+  <div class="profile-left">
+    <div class="dash-card profile-card">
+      <div class="profile-avatar-big">{{ current_user.name[0].upper() }}</div>
+      <h3 class="profile-name">{{ current_user.name }}</h3>
+      <p class="profile-email">{{ current_user.email }}</p>
+      {% if current_user.college %}<p class="profile-college"><i class="bi bi-building"></i> {{ current_user.college }}</p>{% endif %}
+      <div class="profile-stats-mini">
+        <div class="pmini-stat"><div class="pmini-num">{{ total_apps }}</div><div class="pmini-lbl">Applications</div></div>
+        <div class="pmini-stat"><div class="pmini-num">{{ score.total_score|round(0)|int if score else 0 }}%</div><div class="pmini-lbl">Readiness</div></div>
+        <div class="pmini-stat"><div class="pmini-num">{{ current_user.get_skills()|length }}</div><div class="pmini-lbl">Skills</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-right">
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-person-fill"></i> Personal Information</h3></div>
+      <div class="form-row-2">
+        <div class="form-group"><label>Full Name</label><div class="input-wrapper"><i class="bi bi-person-fill input-icon"></i><input type="text" id="pName" class="form-input" value="{{ current_user.name }}"></div></div>
+        <div class="form-group"><label>Email</label><div class="input-wrapper"><i class="bi bi-envelope-fill input-icon"></i><input type="email" class="form-input" value="{{ current_user.email }}" disabled></div></div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-group"><label>College</label><div class="input-wrapper"><i class="bi bi-building input-icon"></i><input type="text" id="pCollege" class="form-input" value="{{ current_user.college or '' }}"></div></div>
+        <div class="form-group"><label>Course</label><div class="input-wrapper"><i class="bi bi-mortarboard-fill input-icon"></i><input type="text" id="pCourse" class="form-input" value="{{ current_user.course or '' }}"></div></div>
+      </div>
+      <div class="form-group">
+        <label>Graduation Year</label>
+        <select id="pGradYear" class="form-input form-select-input" style="max-width:200px">
+          <option value="">Select</option>
+          {% for y in [2024,2025,2026,2027,2028] %}<option value="{{ y }}" {% if current_user.graduation_year==y %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-briefcase-fill"></i> Target Roles</h3></div>
+      <div class="skills-input-wrap" id="rolesWrap">
+        {% for role in current_user.get_target_roles() %}
+        <div class="skill-tag editable blue">{{ role }}<button onclick="this.parentElement.remove()" class="skill-remove">×</button></div>
+        {% endfor %}
+        <input type="text" id="roleInput" class="skill-add-input" placeholder="+ Add target role, press Enter" onkeydown="addTag(event,'rolesWrap','roleInput')">
+      </div>
+    </div>
+
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-code-slash"></i> Technical Skills</h3></div>
+      <div class="skills-input-wrap" id="skillsWrap">
+        {% for skill in current_user.get_skills() %}
+        <div class="skill-tag editable">{{ skill }}<button onclick="this.parentElement.remove()" class="skill-remove">×</button></div>
+        {% endfor %}
+        <input type="text" id="skillInput" class="skill-add-input" placeholder="+ Add skill (Python, SQL, React...), press Enter" onkeydown="addTag(event,'skillsWrap','skillInput')">
+      </div>
+      <div class="skill-presets">
+        <p class="form-hint">Quick add:</p>
+        {% for sk in ['Python','Java','C++','SQL','React','DSA','Machine Learning','AWS','Docker','Git','System Design','REST APIs'] %}
+        <button class="preset-btn" onclick="addPreset('{{ sk }}','skillsWrap')">{{ sk }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-award-fill"></i> Certifications</h3></div>
+      <div class="skills-input-wrap" id="certsWrap">
+        {% for cert in current_user.get_certifications() %}
+        <div class="skill-tag editable amber">{{ cert }}<button onclick="this.parentElement.remove()" class="skill-remove">×</button></div>
+        {% endfor %}
+        <input type="text" id="certInput" class="skill-add-input" placeholder="+ Add certification, press Enter" onkeydown="addTag(event,'certsWrap','certInput')">
+      </div>
+    </div>
+
+    <div class="profile-save-row">
+      <button class="btn-primary-full" onclick="saveProfile()"><i class="bi bi-check-circle-fill"></i> Save All Changes</button>
+    </div>
+    <div id="saveMsg" style="display:none;text-align:center;color:#10b981;margin-top:0.5rem"><i class="bi bi-check-circle-fill"></i> Profile saved successfully!</div>
+  </div>
+</div>
+
+<script>
+function addTag(e, wrapId, inputId){
+  if(e.key==='Enter'){
+    const inp=document.getElementById(inputId);
+    const val=inp.value.trim(); if(!val) return;
+    const div=document.createElement('div');
+    div.className='skill-tag editable';
+    div.innerHTML=`${val}<button onclick="this.parentElement.remove()" class="skill-remove">×</button>`;
+    document.getElementById(wrapId).insertBefore(div,inp);
+    inp.value='';
+  }
+}
+function addPreset(val,wrapId){
+  const existing=Array.from(document.querySelectorAll(`#${wrapId} .skill-tag`)).map(t=>t.textContent.replace('×','').trim().toLowerCase());
+  if(existing.includes(val.toLowerCase())) return;
+  const inp=document.querySelector(`#${wrapId} .skill-add-input`);
+  const div=document.createElement('div');
+  div.className='skill-tag editable';
+  div.innerHTML=`${val}<button onclick="this.parentElement.remove()" class="skill-remove">×</button>`;
+  document.getElementById(wrapId).insertBefore(div,inp);
+}
+function getTags(wrapId){ return Array.from(document.querySelectorAll(`#${wrapId} .skill-tag.editable`)).map(t=>t.textContent.replace('×','').trim()); }
+
+async function saveProfile(){
+  const payload={
+    name: document.getElementById('pName').value,
+    college: document.getElementById('pCollege').value,
+    course: document.getElementById('pCourse').value,
+    graduation_year: parseInt(document.getElementById('pGradYear').value)||null,
+    target_roles: getTags('rolesWrap'),
+    skills: getTags('skillsWrap'),
+    certifications: getTags('certsWrap')
+  };
+  const r=await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await r.json();
+  if(data.success){ const msg=document.getElementById('saveMsg'); msg.style.display='block'; setTimeout(()=>msg.style.display='none',3000); }
+}
+</script>
+{% endblock %}

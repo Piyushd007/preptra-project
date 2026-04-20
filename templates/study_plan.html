@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Study Plan Generator{% endblock %}
+{% block page_title %}<span>Study Plan</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">AI Study Plan Generator</h1><p class="page-sub">Get a personalized, day-by-day placement preparation roadmap</p></div>
+</div>
+
+<div class="study-layout">
+  <div class="dash-card study-input-card">
+    <div class="card-head"><h3><i class="bi bi-calendar3"></i> Generate Your Plan</h3></div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label>Target Role</label>
+        <select id="planRole" class="form-input form-select-input">
+          <option>Software Developer</option>
+          <option>Data Analyst</option>
+          <option>Product Manager</option>
+          <option>Marketing Executive</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Days Until Placement</label>
+        <div class="input-wrapper">
+          <i class="bi bi-calendar-event input-icon"></i>
+          <input type="number" id="daysLeft" class="form-input" value="30" min="7" max="180" placeholder="e.g. 30">
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Weak Areas <span class="form-hint">(select all that apply)</span></label>
+      <div class="checkbox-grid">
+        <label class="check-chip"><input type="checkbox" value="Data Structures & Algorithms">DSA</label>
+        <label class="check-chip"><input type="checkbox" value="Dynamic Programming">Dynamic Programming</label>
+        <label class="check-chip"><input type="checkbox" value="System Design">System Design</label>
+        <label class="check-chip"><input type="checkbox" value="SQL & Databases">SQL/Databases</label>
+        <label class="check-chip"><input type="checkbox" value="Object-Oriented Programming">OOP</label>
+        <label class="check-chip"><input type="checkbox" value="Operating Systems">OS Concepts</label>
+        <label class="check-chip"><input type="checkbox" value="Computer Networks">Networks</label>
+        <label class="check-chip"><input type="checkbox" value="HR & Behavioral">HR/Behavioral</label>
+        <label class="check-chip"><input type="checkbox" value="Aptitude & Reasoning">Aptitude</label>
+        <label class="check-chip"><input type="checkbox" value="Resume & LinkedIn">Resume</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Your Goal</label>
+      <div class="input-wrapper">
+        <i class="bi bi-trophy-fill input-icon"></i>
+        <input type="text" id="planGoal" class="form-input" placeholder="e.g. Get placed at a product-based company">
+      </div>
+    </div>
+    <button class="btn-primary-full" onclick="generatePlan()"><i class="bi bi-stars"></i> Generate AI Study Plan</button>
+  </div>
+
+  <!-- Results -->
+  <div id="planResults" style="display:none">
+    <div class="dash-card plan-header-card">
+      <div class="plan-title-row">
+        <div class="plan-title-icon"><i class="bi bi-calendar-check-fill"></i></div>
+        <div>
+          <h2 id="planTitle">Your Study Plan</h2>
+          <p id="planSubtitle" style="color:#64748b"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Schedule -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-clock-fill"></i> Recommended Daily Schedule</h3></div>
+      <div class="daily-schedule" id="dailySchedule"></div>
+    </div>
+
+    <!-- Week by Week -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-calendar-week-fill"></i> Week-by-Week Breakdown</h3></div>
+      <div id="weekBreakdown" class="week-list"></div>
+    </div>
+
+    <!-- AI Generated Plan -->
+    <div class="dash-card" id="aiPlanCard" style="display:none">
+      <div class="card-head"><h3><i class="bi bi-stars" style="color:#f59e0b"></i> AI-Personalized Plan</h3></div>
+      <div id="aiPlanText" class="ai-plan-text"></div>
+    </div>
+
+    <!-- Milestones -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-flag-fill"></i> Milestones</h3></div>
+      <div id="milestonesList" class="milestones-list"></div>
+    </div>
+
+    <!-- Previous Plans -->
+    {% if plans %}
+    <div class="dash-card">
+      <div class="card-head"><h3>Previous Plans</h3></div>
+      <div class="prev-plans">
+        {% for p in plans %}
+        <div class="prev-plan-item">
+          <div class="prev-plan-icon"><i class="bi bi-calendar3"></i></div>
+          <div class="prev-plan-info">
+            <div class="prev-plan-title">{{ p.title }}</div>
+            <div class="prev-plan-date">{{ p.created_at.strftime('%d %b %Y') }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="planLoading" class="loading-overlay" style="display:none">
+  <div class="loading-spinner"><i class="bi bi-calendar3 spin"></i><p>Generating your personalized plan...</p></div>
+</div>
+
+<script>
+async function generatePlan(){
+  const role=document.getElementById('planRole').value;
+  const days=parseInt(document.getElementById('daysLeft').value)||30;
+  const goal=document.getElementById('planGoal').value;
+  const weakAreas=Array.from(document.querySelectorAll('.check-chip input:checked')).map(c=>c.value);
+  document.getElementById('planLoading').style.display='flex';
+
+  const r=await fetch('/api/generate-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,days,goal,weak_areas:weakAreas})});
+  const data=await r.json();
+  document.getElementById('planLoading').style.display='none';
+
+  if(!data.plan){ alert('Plan generation failed.'); return; }
+  const plan=data.plan;
+
+  document.getElementById('planTitle').textContent=`${role} — ${days}-Day Plan`;
+  document.getElementById('planSubtitle').textContent=`Personalized for ${days} days${weakAreas.length?' with focus on '+weakAreas.slice(0,2).join(', '):''}`;
+  document.getElementById('planResults').style.display='block';
+  document.getElementById('planResults').scrollIntoView({behavior:'smooth'});
+
+  // Daily schedule
+  const ds=plan.daily_schedule||{};
+  document.getElementById('dailySchedule').innerHTML=Object.entries(ds).map(([k,v])=>`
+    <div class="day-slot"><div class="day-slot-time">${k.charAt(0).toUpperCase()+k.slice(1)}</div><div class="day-slot-task">${v}</div></div>`).join('');
+
+  // Weeks
+  document.getElementById('weekBreakdown').innerHTML=(plan.weeks||[]).map((w,i)=>`
+    <div class="week-item">
+      <div class="week-num">Week ${w.week||i+1}</div>
+      <div class="week-content">
+        <div class="week-focus"><strong>${w.focus}</strong></div>
+        <div class="week-daily"><i class="bi bi-clock"></i> ${w.daily}</div>
+        <div class="week-res"><i class="bi bi-link-45deg"></i> ${w.resources}</div>
+      </div>
+    </div>`).join('');
+
+  // AI plan
+  if(plan.ai_plan){
+    document.getElementById('aiPlanCard').style.display='block';
+    const fmt=plan.ai_plan.replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    document.getElementById('aiPlanText').innerHTML=`<p>${fmt}</p>`;
+  }
+
+  // Milestones
+  document.getElementById('milestonesList').innerHTML=(plan.milestones||[]).map((m,i)=>`
+    <div class="milestone-item"><div class="milestone-num">${i+1}</div><div>${m}</div></div>`).join('');
+}
+</script>
+{% endblock %}

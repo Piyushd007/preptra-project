@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Resources{% endblock %}
+{% block page_title %}<span>Resources</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">Resource Hub</h1><p class="page-sub">Curated guides, certifications, and study materials by role</p></div>
+</div>
+
+<div class="resources-tabs">
+  {% for role, cats in resources.items() %}
+  <button class="res-tab {% if loop.first %}active{% endif %}" onclick="showRole('{{ role }}', this)">{{ role }}</button>
+  {% endfor %}
+</div>
+
+{% for role, cats in resources.items() %}
+<div class="role-resources {% if loop.first %}active{% endif %}" id="role-{{ role|replace(' ','_') }}">
+  <div class="resources-grid">
+    {% for cat, items in cats.items() %}
+    {% if cat != 'Certifications' %}
+    <div class="dash-card resource-card">
+      <div class="card-head"><h3><i class="bi bi-book-fill"></i> {{ cat }}</h3></div>
+      <ul class="res-list">
+        {% for item in items %}
+        <li class="res-item"><i class="bi bi-arrow-right-circle-fill"></i>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div class="dash-card resource-card cert-card">
+      <div class="card-head"><h3><i class="bi bi-award-fill" style="color:#f59e0b"></i> Certifications</h3></div>
+      {% for cert in items %}
+      <a href="{{ cert.link }}" target="_blank" class="cert-item">
+        <div class="cert-icon"><i class="bi bi-patch-check-fill"></i></div>
+        <div class="cert-info">
+          <div class="cert-name">{{ cert.name }}</div>
+          <div class="cert-platform">{{ cert.platform }}</div>
+        </div>
+        <i class="bi bi-box-arrow-up-right cert-link"></i>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- Interview Templates -->
+  <div class="dash-card">
+    <div class="card-head"><h3><i class="bi bi-file-earmark-text-fill"></i> ATS Resume Templates</h3></div>
+    <div class="template-grid">
+      <div class="template-card"><div class="template-preview classic"><div class="tp-name">CLASSIC</div></div><div class="tp-label">Classic Clean</div><div class="tp-tag">Best for IT</div></div>
+      <div class="template-card"><div class="template-preview modern"><div class="tp-name">MODERN</div></div><div class="tp-label">Modern Minimal</div><div class="tp-tag">Product/Analytics</div></div>
+      <div class="template-card"><div class="template-preview tech"><div class="tp-name">TECH</div></div><div class="tp-label">Tech Focused</div><div class="tp-tag">Developers</div></div>
+    </div>
+    <p class="template-note"><i class="bi bi-info-circle-fill"></i> Search "ATS resume templates" on Overleaf (LaTeX) or use Canva's ATS-friendly templates for best results.</p>
+  </div>
+</div>
+{% endfor %}
+
+<div class="dash-card" style="margin-top:1.5rem">
+  <div class="card-head"><h3><i class="bi bi-youtube" style="color:#ef4444"></i> Top YouTube Channels</h3></div>
+  <div class="yt-channels">
+    <div class="yt-item"><i class="bi bi-play-circle-fill" style="color:#ef4444"></i><div><strong>Striver (TakeUForward)</strong><p>Best DSA channel for placements</p></div></div>
+    <div class="yt-item"><i class="bi bi-play-circle-fill" style="color:#ef4444"></i><div><strong>NeetCode</strong><p>LeetCode patterns and system design</p></div></div>
+    <div class="yt-item"><i class="bi bi-play-circle-fill" style="color:#ef4444"></i><div><strong>Gaurav Sen</strong><p>System design masterclass</p></div></div>
+    <div class="yt-item"><i class="bi bi-play-circle-fill" style="color:#ef4444"></i><div><strong>CS Dojo</strong><p>Data structures & algorithms</p></div></div>
+  </div>
+</div>
+
+<script>
+function showRole(role, btn){
+  document.querySelectorAll('.role-resources').forEach(d=>d.classList.remove('active'));
+  document.querySelectorAll('.res-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('role-'+role.replace(/ /g,'_')).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+{% endblock %}

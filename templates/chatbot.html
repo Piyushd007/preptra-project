@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}AI Career Chatbot{% endblock %}
+{% block page_title %}<span>AI Career Chatbot</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">Career AI Advisor</h1><p class="page-sub">Ask anything about placements, interviews, and your career</p></div>
+  <div class="ai-badge"><i class="bi bi-stars"></i> Powered by GPT</div>
+</div>
+
+<div class="chatbot-layout">
+  <div class="chatbot-main">
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-welcome">
+        <div class="chat-bot-avatar"><i class="bi bi-robot"></i></div>
+        <div class="chat-bubble bot">
+          <p>👋 Hi <strong>{{ current_user.name.split()[0] }}</strong>! I'm your Preptra AI Career Advisor.</p>
+          <p>I can help you with:</p>
+          <ul>
+            <li>🎯 Interview preparation strategies</li>
+            <li>📄 Resume tips and feedback</li>
+            <li>💻 DSA and technical preparation</li>
+            <li>🏢 Company-specific guidance</li>
+            <li>📚 Study roadmaps and plans</li>
+          </ul>
+          <p>What would you like to work on today?</p>
+        </div>
+      </div>
+      {% for msg in history %}
+      <div class="chat-msg user-msg">
+        <div class="chat-bubble user">{{ msg.message }}</div>
+        <div class="chat-user-avatar">{{ current_user.name[0] }}</div>
+      </div>
+      <div class="chat-msg bot-msg">
+        <div class="chat-bot-avatar sm"><i class="bi bi-robot"></i></div>
+        <div class="chat-bubble bot">{{ msg.response | safe }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="chat-input-area">
+      <div class="chat-suggestions" id="suggestions">
+        <button class="suggestion-chip" onclick="sendSuggestion(this)">How to prepare for SDE interviews?</button>
+        <button class="suggestion-chip" onclick="sendSuggestion(this)">Review my resume tips</button>
+        <button class="suggestion-chip" onclick="sendSuggestion(this)">Best companies for freshers 2024</button>
+        <button class="suggestion-chip" onclick="sendSuggestion(this)">DSA study plan for 30 days</button>
+        <button class="suggestion-chip" onclick="sendSuggestion(this)">How to crack HR round?</button>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chatInput" class="chat-textarea" placeholder="Ask about placements, interviews, skills..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()"><i class="bi bi-send-fill"></i></button>
+      </div>
+    </div>
+  </div>
+  <div class="chatbot-sidebar">
+    <div class="dash-card">
+      <div class="card-head"><h3>Quick Topics</h3></div>
+      <div class="quick-topics">
+        <button class="topic-btn" onclick="sendSuggestion(this)">📊 Aptitude Tips</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">💻 Technical Interview Prep</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">🗣️ HR Round Questions</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">📝 Resume Building</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">🏆 Top Companies to Target</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">🔧 System Design Basics</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">📈 Salary Negotiation Tips</button>
+        <button class="topic-btn" onclick="sendSuggestion(this)">🤝 What Questions to Ask Interviewer?</button>
+      </div>
+    </div>
+    <div class="dash-card">
+      <div class="card-head"><h3>Your Profile Context</h3></div>
+      <div class="profile-context">
+        <div class="ctx-item"><i class="bi bi-person-fill"></i> {{ current_user.name }}</div>
+        {% if current_user.college %}<div class="ctx-item"><i class="bi bi-building"></i> {{ current_user.college }}</div>{% endif %}
+        {% if current_user.get_target_roles() %}<div class="ctx-item"><i class="bi bi-briefcase-fill"></i> {{ current_user.get_target_roles()[0] }}</div>{% endif %}
+        {% if current_user.get_skills() %}<div class="ctx-item"><i class="bi bi-code-slash"></i> {{ current_user.get_skills()[:3]|join(', ') }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,160)+'px'; }
+function sendSuggestion(btn){ document.getElementById('chatInput').value=btn.textContent.replace(/^[^\w]+/,'').trim(); sendMessage(); }
+
+async function sendMessage(){
+  const inp=document.getElementById('chatInput');
+  const msg=inp.value.trim();
+  if(!msg) return;
+  const win=document.getElementById('chatWindow');
+  const suggestions=document.getElementById('suggestions');
+  suggestions.style.display='none';
+  inp.value=''; inp.style.height='auto';
+  document.getElementById('sendBtn').disabled=true;
+
+  // Add user bubble
+  win.innerHTML+=`<div class="chat-msg user-msg"><div class="chat-bubble user">${escHtml(msg)}</div><div class="chat-user-avatar">{{ current_user.name[0] }}</div></div>`;
+  // Typing indicator
+  const typingId='typing_'+Date.now();
+  win.innerHTML+=`<div class="chat-msg bot-msg" id="${typingId}"><div class="chat-bot-avatar sm"><i class="bi bi-robot"></i></div><div class="chat-bubble bot typing"><span></span><span></span><span></span></div></div>`;
+  win.scrollTop=win.scrollHeight;
+
+  try {
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+    const data=await r.json();
+    document.getElementById(typingId).remove();
+    const formatted=formatResponse(data.response||'Sorry, I could not process that.');
+    win.innerHTML+=`<div class="chat-msg bot-msg"><div class="chat-bot-avatar sm"><i class="bi bi-robot"></i></div><div class="chat-bubble bot">${formatted}</div></div>`;
+  } catch(e) {
+    document.getElementById(typingId).remove();
+    win.innerHTML+=`<div class="chat-msg bot-msg"><div class="chat-bot-avatar sm"><i class="bi bi-robot"></i></div><div class="chat-bubble bot">Sorry, there was an error. Please try again.</div></div>`;
+  }
+  document.getElementById('sendBtn').disabled=false;
+  win.scrollTop=win.scrollHeight;
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatResponse(text){
+  return text
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/•\s/g,'• ')
+    .replace(/\n•/g,'<br>•')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>');
+}
+
+// Scroll to bottom on load
+window.addEventListener('load',()=>{ const w=document.getElementById('chatWindow'); w.scrollTop=w.scrollHeight; });
+</script>
+{% endblock %}

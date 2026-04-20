@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Readiness Score{% endblock %}
+{% block page_title %}<span>Readiness Score</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">Placement Readiness Score</h1><p class="page-sub">Your comprehensive career preparedness metric</p></div>
+  <button class="btn-add" onclick="computeScore()"><i class="bi bi-arrow-repeat"></i> Compute Score</button>
+</div>
+
+<div class="readiness-page">
+  <div class="readiness-main-card" id="scoreDisplay">
+    {% if score %}
+    <div class="big-score-wrap">
+      <canvas id="mainGauge" width="280" height="165"></canvas>
+      <div class="big-score-label">
+        <div class="big-score-num" id="bigScore">{{ score.total_score|round(1) }}</div>
+        <div class="big-score-pct">/ 100</div>
+        <div class="big-score-tag {{ 'excellent' if score.total_score >= 80 else 'good' if score.total_score >= 60 else 'average' if score.total_score >= 40 else 'poor' }}">
+          {{ 'Excellent 🎉' if score.total_score >= 80 else 'Good 👍' if score.total_score >= 60 else 'Needs Work 💪' if score.total_score >= 40 else 'Getting Started 🚀' }}
+        </div>
+      </div>
+    </div>
+    <div class="score-components">
+      <div class="score-comp-item">
+        <div class="scomp-label"><i class="bi bi-code-slash"></i> Skills (30%)</div>
+        <div class="scomp-bar"><div class="scomp-fill blue" style="width:{{ score.skills_score }}%"></div></div>
+        <div class="scomp-val">{{ score.skills_score|round(0)|int }}%</div>
+      </div>
+      <div class="score-comp-item">
+        <div class="scomp-label"><i class="bi bi-award-fill"></i> Certifications (20%)</div>
+        <div class="scomp-bar"><div class="scomp-fill green" style="width:{{ score.cert_score }}%"></div></div>
+        <div class="scomp-val">{{ score.cert_score|round(0)|int }}%</div>
+      </div>
+      <div class="score-comp-item">
+        <div class="scomp-label"><i class="bi bi-camera-video-fill"></i> Mock Interviews (15%)</div>
+        <div class="scomp-bar"><div class="scomp-fill purple" style="width:{{ score.mock_score }}%"></div></div>
+        <div class="scomp-val">{{ score.mock_score|round(0)|int }}%</div>
+      </div>
+      <div class="score-comp-item">
+        <div class="scomp-label"><i class="bi bi-file-earmark-text-fill"></i> Resume (15%)</div>
+        <div class="scomp-bar"><div class="scomp-fill amber" style="width:{{ score.resume_score }}%"></div></div>
+        <div class="scomp-val">{{ score.resume_score|round(0)|int }}%</div>
+      </div>
+      <div class="score-comp-item">
+        <div class="scomp-label"><i class="bi bi-person-check-fill"></i> Interviews (10%)</div>
+        <div class="scomp-bar"><div class="scomp-fill red" style="width:{{ score.interview_score }}%"></div></div>
+        <div class="scomp-val">{{ score.interview_score|round(0)|int }}%</div>
+      </div>
+      <div class="score-comp-item">
+        <div class="scomp-label"><i class="bi bi-calendar-check-fill"></i> Consistency (10%)</div>
+        <div class="scomp-bar"><div class="scomp-fill teal" style="width:{{ score.consistency_score }}%"></div></div>
+        <div class="scomp-val">{{ score.consistency_score|round(0)|int }}%</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="bi bi-speedometer2"></i></div>
+      <h3>No score yet</h3>
+      <p>Click "Compute Score" to calculate your Placement Readiness Score based on your profile, skills, applications, and mock interviews.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="readiness-side">
+    <!-- Tips -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-lightbulb-fill" style="color:#f59e0b"></i> Improvement Tips</h3></div>
+      <div id="tipsList">
+        {% if score %}
+        {% for tip in score.get_tips() %}
+        <div class="tip-item"><i class="bi bi-arrow-right-circle-fill"></i><span>{{ tip }}</span></div>
+        {% else %}
+        <div class="tip-item"><i class="bi bi-check-circle-fill" style="color:#10b981"></i><span>All components look good! Keep it up.</span></div>
+        {% endfor %}
+        {% else %}
+        <p style="color:#64748b">Compute your score to see improvement tips.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Score History -->
+    {% if history %}
+    <div class="dash-card">
+      <div class="card-head"><h3>Score History</h3></div>
+      <div class="history-list">
+        {% for h in history %}
+        <div class="history-item">
+          <div class="history-date">{{ h.calculated_at.strftime('%d %b, %I:%M %p') }}</div>
+          <div class="history-bar-wrap">
+            <div class="history-bar" style="width:{{ h.total_score }}%"></div>
+          </div>
+          <div class="history-val {{ 'good' if h.total_score >= 60 else 'warn' }}">{{ h.total_score|round(1) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Algorithm Info -->
+    <div class="dash-card algo-card">
+      <div class="card-head"><h3><i class="bi bi-cpu-fill"></i> Score Algorithm</h3></div>
+      <div class="algo-list">
+        <div class="algo-item"><div class="algo-bar" style="width:30%"></div><span>Skills — 30%</span></div>
+        <div class="algo-item"><div class="algo-bar" style="width:20%"></div><span>Certifications — 20%</span></div>
+        <div class="algo-item"><div class="algo-bar" style="width:15%"></div><span>Mock Interviews — 15%</span></div>
+        <div class="algo-item"><div class="algo-bar" style="width:15%"></div><span>Resume Score — 15%</span></div>
+        <div class="algo-item"><div class="algo-bar" style="width:10%"></div><span>Interview Performance — 10%</span></div>
+        <div class="algo-item"><div class="algo-bar" style="width:10%"></div><span>Consistency — 10%</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+{% if score %}
+const ctx = document.getElementById('mainGauge').getContext('2d');
+const s = {{ score.total_score }};
+new Chart(ctx, {
+  type: 'doughnut',
+  data: { datasets: [{ data: [s, 100-s], backgroundColor: [s>=70?'#10b981':s>=40?'#f59e0b':'#ef4444', '#1e293b'], borderWidth: 0, borderRadius: 6 }] },
+  options: { rotation: -90, circumference: 180, cutout: '78%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+});
+{% endif %}
+
+function computeScore() {
+  const btn = document.querySelector('.btn-add');
+  btn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Computing...';
+  btn.disabled = true;
+  fetch('/api/compute-readiness', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(r => r.json()).then(data => {
+      btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Done!';
+      setTimeout(() => location.reload(), 800);
+    });
+}
+</script>
+{% endblock %}

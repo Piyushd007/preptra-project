@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Resume Analyzer{% endblock %}
+{% block page_title %}<span>Resume Analyzer</span>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1 class="page-h1">AI Resume Analyzer</h1><p class="page-sub">Get a score and AI-powered improvements for your resume</p></div>
+</div>
+
+<div class="resume-layout">
+  <!-- Upload Card -->
+  <div class="dash-card resume-upload-card">
+    <div class="card-head"><h3><i class="bi bi-file-earmark-person-fill"></i> Upload Your Resume</h3></div>
+    <div class="upload-area" id="uploadArea" ondrop="dropFile(event)" ondragover="event.preventDefault()" ondragleave="resetDrop()" ondragenter="event.target.classList.add('drag-over')">
+      <i class="bi bi-cloud-upload-fill upload-icon"></i>
+      <p class="upload-title">Drop your PDF resume here</p>
+      <p class="upload-sub">or click to browse</p>
+      <input type="file" id="resumeFile" accept=".pdf,.txt" style="display:none" onchange="previewFile(this)">
+      <button class="btn-outline" onclick="document.getElementById('resumeFile').click()">Browse File</button>
+      <div id="filePreview" class="file-preview" style="display:none"></div>
+    </div>
+    <div class="divider"><span>or paste your resume text</span></div>
+    <div class="form-group">
+      <textarea id="resumeText" class="form-input form-textarea lg" placeholder="Paste your resume content here (plain text)..." rows="10"></textarea>
+    </div>
+    <button class="btn-primary-full" onclick="analyzeResume()"><i class="bi bi-cpu-fill"></i> Analyze Resume</button>
+  </div>
+
+  <!-- Results -->
+  <div id="resumeResults" style="display:none">
+    <!-- Score Card -->
+    <div class="dash-card resume-score-card">
+      <div class="card-head"><h3>Resume Score</h3></div>
+      <div class="resume-score-display">
+        <div class="resume-score-circle">
+          <canvas id="resumeScoreChart" width="180" height="180"></canvas>
+          <div class="resume-score-num" id="rsNum">0</div>
+        </div>
+        <div class="resume-score-info">
+          <div class="rs-tag" id="rsTag">—</div>
+          <div class="rs-words" id="rsWords"></div>
+          <p id="rsSummary" style="color:#94a3b8;font-size:0.9rem;margin-top:0.5rem"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strengths & Issues -->
+    <div class="two-cols">
+      <div class="dash-card">
+        <div class="card-head"><h3><i class="bi bi-check-circle-fill" style="color:#10b981"></i> Strengths</h3></div>
+        <div id="strengthsList"></div>
+      </div>
+      <div class="dash-card">
+        <div class="card-head"><h3><i class="bi bi-exclamation-triangle-fill" style="color:#ef4444"></i> Issues Found</h3></div>
+        <div id="issuesList"></div>
+      </div>
+    </div>
+
+    <!-- AI Feedback -->
+    <div class="dash-card ai-feedback-card">
+      <div class="card-head"><h3><i class="bi bi-stars" style="color:#f59e0b"></i> AI Detailed Feedback</h3></div>
+      <div id="aiFeedbackText" class="ai-feedback-content"></div>
+    </div>
+
+    <!-- Suggestions -->
+    <div class="dash-card">
+      <div class="card-head"><h3><i class="bi bi-lightbulb-fill" style="color:#3b82f6"></i> Improvement Suggestions</h3></div>
+      <div id="suggestionsList"></div>
+    </div>
+
+    <!-- ATS Tips -->
+    <div class="dash-card ats-card">
+      <div class="card-head"><h3><i class="bi bi-robot"></i> ATS Optimization Tips</h3></div>
+      <div class="ats-tips-grid">
+        <div class="ats-tip"><i class="bi bi-check2-circle"></i><div><strong>Use standard section headers</strong><p>Education, Experience, Skills, Projects, Certifications</p></div></div>
+        <div class="ats-tip"><i class="bi bi-check2-circle"></i><div><strong>Avoid tables and graphics</strong><p>ATS systems can't parse images or tables</p></div></div>
+        <div class="ats-tip"><i class="bi bi-check2-circle"></i><div><strong>Include keywords from JD</strong><p>Mirror the job description language naturally</p></div></div>
+        <div class="ats-tip"><i class="bi bi-check2-circle"></i><div><strong>Use standard fonts</strong><p>Arial, Calibri, Times New Roman work best</p></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="resumeLoading" class="loading-overlay" style="display:none">
+  <div class="loading-spinner"><i class="bi bi-file-earmark-person-fill spin"></i><p>Analyzing your resume with AI...</p></div>
+</div>
+
+<script>
+function dropFile(e){ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) previewFileObj(f); resetDrop(); }
+function resetDrop(){ document.getElementById('uploadArea').classList.remove('drag-over'); }
+function previewFile(input){ if(input.files[0]) previewFileObj(input.files[0]); }
+function previewFileObj(f){
+  const prev=document.getElementById('filePreview');
+  prev.style.display='block';
+  prev.innerHTML=`<i class="bi bi-file-earmark-pdf-fill" style="color:#ef4444"></i> <strong>${f.name}</strong> (${(f.size/1024).toFixed(1)} KB)`;
+}
+
+async function analyzeResume(){
+  document.getElementById('resumeLoading').style.display='flex';
+  const formData=new FormData();
+  const file=document.getElementById('resumeFile').files[0];
+  const text=document.getElementById('resumeText').value;
+  if(file) formData.append('file',file);
+  else if(text) formData.append('resume_text',text);
+  else { document.getElementById('resumeLoading').style.display='none'; alert('Please upload a PDF or paste your resume text.'); return; }
+
+  try {
+    const r=await fetch('/api/analyze-resume',{method:'POST',body:formData});
+    const data=await r.json();
+    document.getElementById('resumeLoading').style.display='none';
+    if(data.error){ alert(data.error); return; }
+    showResults(data);
+  } catch(e){ document.getElementById('resumeLoading').style.display='none'; alert('Analysis failed. Try pasting text instead.'); }
+}
+
+function showResults(data){
+  document.getElementById('resumeResults').style.display='block';
+  document.getElementById('resumeResults').scrollIntoView({behavior:'smooth'});
+  const s=data.score;
+  document.getElementById('rsNum').textContent=s;
+  const tag=document.getElementById('rsTag');
+  tag.textContent=s>=80?'Excellent ✨':s>=65?'Good 👍':s>=50?'Average 🔧':'Needs Work 🚨';
+  tag.className='rs-tag '+(s>=65?'good':s>=50?'avg':'poor');
+  document.getElementById('rsWords').textContent=data.word_count+' words detected';
+  document.getElementById('rsSummary').textContent=s>=65?'Your resume is well-structured for ATS.':'Work on the suggestions below to improve your score.';
+
+  const ctx=document.getElementById('resumeScoreChart').getContext('2d');
+  if(window._rsChart) window._rsChart.destroy();
+  window._rsChart=new Chart(ctx,{type:'doughnut',data:{datasets:[{data:[s,100-s],backgroundColor:[s>=70?'#10b981':s>=50?'#f59e0b':'#ef4444','#1e293b'],borderWidth:0}]},options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+
+  document.getElementById('strengthsList').innerHTML=(data.strengths||[]).map(s=>`<div class="fb-item str"><i class="bi bi-check-circle-fill"></i>${s}</div>`).join('') || '<p class="muted">No specific strengths detected yet.</p>';
+  document.getElementById('issuesList').innerHTML=(data.issues||[]).map(s=>`<div class="fb-item iss"><i class="bi bi-exclamation-circle-fill"></i>${s}</div>`).join('') || '<div class="fb-item str"><i class="bi bi-check-circle-fill"></i>No major issues found!</div>';
+  document.getElementById('suggestionsList').innerHTML=(data.suggestions||[]).map((s,i)=>`<div class="suggestion-item"><span class="sug-num">${i+1}</span>${s}</div>`).join('');
+
+  const fb=(data.ai_feedback||'').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  document.getElementById('aiFeedbackText').innerHTML=`<p>${fb}</p>`;
+}
+</script>
+{% endblock %}
